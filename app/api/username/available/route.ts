@@ -1,37 +1,40 @@
-import { Database } from "@/supabase/types"
-import { createClient } from "@supabase/supabase-js"
+import { NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
-export const runtime = "edge"
-
-export async function POST(request: Request) {
-  const json = await request.json()
-  const { username } = json as {
-    username: string
-  }
-
+export async function POST(req: Request) {
   try {
-    const supabaseAdmin = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const body = await req.json();
+    const { username } = body;
 
-    const { data: usernames, error } = await supabaseAdmin
-      .from("profiles")
-      .select("username")
-      .eq("username", username)
-
-    if (!usernames) {
-      throw new Error(error.message)
+    if (typeof username !== 'string' || username.length < 3) {
+      return NextResponse.json({ isAvailable: false }, { status: 400 });
     }
 
-    return new Response(JSON.stringify({ isAvailable: !usernames.length }), {
-      status: 200
-    })
-  } catch (error: any) {
-    const errorMessage = error.error?.message || "An unexpected error occurred"
-    const errorCode = error.status || 500
-    return new Response(JSON.stringify({ message: errorMessage }), {
-      status: errorCode
-    })
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies,
+      }
+    );
+
+    const { data, error } = await supabase
+      .from('profiles') // Eğer tablo adın farklıysa burayı değiştir
+      .select('username')
+      .eq('username', username.toLowerCase())
+      .maybeSingle();
+
+    if (error) {
+      console.error('[USERNAME_CHECK_ERROR]', error);
+      return NextResponse.json({ isAvailable: false }, { status: 500 });
+    }
+
+    const isAvailable = !data; // Varsa alınmış, yoksa uygun
+
+    return NextResponse.json({ isAvailable });
+  } catch (err) {
+    console.error('[USERNAME_CHECK_EXCEPTION]', err);
+    return NextResponse.json({ isAvailable: false }, { status: 500 });
   }
 }
