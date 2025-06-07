@@ -58,7 +58,6 @@ export default async function Login({
     if (process.env.EDGE_CONFIG) {
       return await get<string>(name)
     }
-
     return process.env[name]
   }
 
@@ -97,7 +96,6 @@ export default async function Login({
 
   const signUp = async (formData: FormData) => {
     "use server"
-
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
@@ -137,7 +135,6 @@ export default async function Login({
       return redirect(`/login?message=${error.message}`)
     }
 
-    // Home workspace oluşturma
     if (userData?.user?.id) {
       const { error: workspaceError } = await supabase.from("workspaces").insert({
         user_id: userData.user.id,
@@ -149,7 +146,6 @@ export default async function Login({
 
       if (workspaceError) {
         console.error("Workspace oluşturma hatası:", workspaceError)
-        // İstersen hata yönetimi ekle
       }
     }
 
@@ -158,7 +154,6 @@ export default async function Login({
 
   const handleResetPassword = async (formData: FormData) => {
     "use server"
-
     const origin = headers().get("origin")
     const email = formData.get("email") as string
     const cookieStore = cookies()
