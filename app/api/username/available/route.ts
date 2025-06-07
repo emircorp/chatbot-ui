@@ -11,11 +11,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ isAvailable: false }, { status: 400 });
     }
 
+    const cookieStore = cookies();
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        cookies: cookies() // ✅ DÜZELTME: fonksiyonu çağır!
+        cookies: {
+          get(name) {
+            return cookieStore.get(name)?.value;
+          },
+        },
       }
     );
 
