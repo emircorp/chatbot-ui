@@ -50,7 +50,6 @@ export default async function Login({
 
   const signIn = async (formData: FormData) => {
     "use server"
-
     const email = formData.get("email") as string
     const password = formData.get("password") as string
     const cookieStore = cookies()
@@ -108,7 +107,6 @@ export default async function Login({
       ? emailWhitelistPatternsString?.split(",")
       : []
 
-    // If there are whitelist patterns, check if the email is allowed to sign up
     if (emailDomainWhitelist.length > 0 || emailWhitelist.length > 0) {
       const domainMatch = emailDomainWhitelist?.includes(email.split("@")[1])
       const emailMatch = emailWhitelist?.includes(email)
@@ -125,10 +123,7 @@ export default async function Login({
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        // USE IF YOU WANT TO SEND EMAIL VERIFICATION, ALSO CHANGE TOML FILE
-        // emailRedirectTo: `${origin}/auth/callback`
-      }
+      options: {}
     })
 
     if (error) {
@@ -137,9 +132,6 @@ export default async function Login({
     }
 
     return redirect("/setup")
-
-    // USE IF YOU WANT TO SEND EMAIL VERIFICATION, ALSO CHANGE TOML FILE
-    // return redirect("/login?message=Check email to continue sign in process")
   }
 
   const handleResetPassword = async (formData: FormData) => {
@@ -199,6 +191,12 @@ export default async function Login({
         >
           Sign Up
         </SubmitButton>
+
+        {/* KVKK BİLGİLENDİRME METNİ */}
+        <p className="text-xs text-center text-muted-foreground px-2">
+          By signing up, you give consent for the brAIn Project to process your details under the Turkish 6698 Personal Data Protection Law. (
+          <a href="/privacy" target="_blank" className="underline">Learn more</a>)
+        </p>
 
         <div className="text-muted-foreground mt-1 flex justify-center text-sm">
           <span className="mr-1">Forgot your password?</span>
