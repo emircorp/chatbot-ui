@@ -39,8 +39,8 @@ export default async function Login({
       .select("*")
       .eq("user_id", session.user.id)
       .eq("is_home", true)
-      .limit(1)  // Burayı değiştiriyoruz
-      .maybeSingle() // Burayı değiştiriyoruz
+      .limit(1)
+      .maybeSingle()
 
     if (error) {
       throw new Error(error.message)
@@ -53,9 +53,111 @@ export default async function Login({
     return redirect(`/${homeWorkspace.id}/chat`)
   }
 
-  // ... Aşağıdaki fonksiyonlarda herhangi bir değişiklik yapmana gerek yok ...
+  const getEnvVarOrEdgeConfigValue = async (name: string) => {
+    "use server"
+    if (process.env.EDGE_CONFIG) {
+      return await get<string>(name)
+    }
 
-  // signIn, signUp, handleResetPassword gibi fonksiyonlar buraya gelecek
+    return process.env[name]
+  }
+
+  const signIn = async (formData: FormData) => {
+    "use server"
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+    const cookieStore = cookies()
+    const supabase = createClient(cookieStore)
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+
+    if (error) {
+      return redirect(`/login?message=${error.message}`)
+    }
+
+    const { data: homeWorkspace, error: homeWorkspaceError } = await supabase
+      .from("workspaces")
+      .select("*")
+      .eq("user_id", data.user.id)
+      .eq("is_home", true)
+      .limit(1)
+      .maybeSingle()
+
+    if (!homeWorkspace) {
+      throw new Error(
+        homeWorkspaceError?.message || "An unexpected error occurred"
+      )
+    }
+
+    return redirect(`/${homeWorkspace.id}/chat`)
+  }
+
+  const signUp = async (formData: FormData) => {
+    "use server"
+
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+
+    const emailDomainWhitelistPatternsString = await getEnvVarOrEdgeConfigValue(
+      "EMAIL_DOMAIN_WHITELIST"
+    )
+    const emailDomainWhitelist = emailDomainWhitelistPatternsString?.trim()
+      ? emailDomainWhitelistPatternsString?.split(",")
+      : []
+    const emailWhitelistPatternsString =
+      await getEnvVarOrEdgeConfigValue("EMAIL_WHITELIST")
+    const emailWhitelist = emailWhitelistPatternsString?.trim()
+      ? emailWhitelistPatternsString?.split(",")
+      : []
+
+    if (emailDomainWhitelist.length > 0 || emailWhitelist.length > 0) {
+      const domainMatch = emailDomainWhitelist?.includes(email.split("@")[1])
+      const emailMatch = emailWhitelist?.includes(email)
+      if (!domainMatch && !emailMatch) {
+        return redirect(
+          `/login?message=Email ${email} is not allowed to sign up.`
+        )
+      }
+    }
+
+    const cookieStore = cookies()
+    const supabase = createClient(cookieStore)
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {}
+    })
+
+    if (error) {
+      console.error(error)
+      return redirect(`/login?message=${error.message}`)
+    }
+
+    return redirect("/setup")
+  }
+
+  const handleResetPassword = async (formData: FormData) => {
+    "use server"
+
+    const origin = headers().get("origin")
+    const email = formData.get("email") as string
+    const cookieStore = cookies()
+    const supabase = createClient(cookieStore)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${origin}/auth/callback?next=/login/password`
+    })
+
+    if (error) {
+      return redirect(`/login?message=${error.message}`)
+    }
+
+    return redirect("/login?message=Check email to reset password")
+  }
 
   return (
     <div className="flex w-full flex-1 flex-col justify-center gap-2 px-8 sm:max-w-md">
