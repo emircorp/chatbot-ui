@@ -15,12 +15,12 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        cookies,
+        cookies: cookies() // ✅ DÜZELTME: fonksiyonu çağır!
       }
     );
 
     const { data, error } = await supabase
-      .from('profiles') // Eğer tablo adın farklıysa burayı değiştir
+      .from('profiles')
       .select('username')
       .eq('username', username.toLowerCase())
       .maybeSingle();
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ isAvailable: false }, { status: 500 });
     }
 
-    const isAvailable = !data; // Varsa alınmış, yoksa uygun
+    const isAvailable = !data;
 
     return NextResponse.json({ isAvailable });
   } catch (err) {
