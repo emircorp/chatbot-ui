@@ -126,7 +126,7 @@ export default async function Login({
     const cookieStore = cookies()
     const supabase = createClient(cookieStore)
 
-    const { error } = await supabase.auth.signUp({
+    const { data: userData, error } = await supabase.auth.signUp({
       email,
       password,
       options: {}
@@ -135,6 +135,22 @@ export default async function Login({
     if (error) {
       console.error(error)
       return redirect(`/login?message=${error.message}`)
+    }
+
+    // Home workspace oluşturma
+    if (userData?.user?.id) {
+      const { error: workspaceError } = await supabase.from("workspaces").insert({
+        user_id: userData.user.id,
+        is_home: true,
+        name: "Home Workspace",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+
+      if (workspaceError) {
+        console.error("Workspace oluşturma hatası:", workspaceError)
+        // İstersen hata yönetimi ekle
+      }
     }
 
     return redirect("/setup")
