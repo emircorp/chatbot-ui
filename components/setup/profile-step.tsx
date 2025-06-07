@@ -24,9 +24,9 @@ interface ProfileStepProps {
 }
 
 export const ProfileStep: FC<ProfileStepProps> = ({
-  username,
+  username = "",
   usernameAvailable,
-  displayName,
+  displayName = "",
   onUsernameAvailableChange,
   onUsernameChange,
   onDisplayNameChange
@@ -126,7 +126,7 @@ export const ProfileStep: FC<ProfileStepProps> = ({
           </div>
         </div>
 
-        <LimitDisplay used={username.length} limit={PROFILE_USERNAME_MAX} />
+        <LimitDisplay used={(username ?? "").length} limit={PROFILE_USERNAME_MAX} />
       </div>
 
       <div className="space-y-1">
@@ -139,10 +139,7 @@ export const ProfileStep: FC<ProfileStepProps> = ({
           maxLength={PROFILE_DISPLAY_NAME_MAX}
         />
 
-        <LimitDisplay
-          used={displayName.length}
-          limit={PROFILE_DISPLAY_NAME_MAX}
-        />
+        <LimitDisplay used={(displayName ?? "").length} limit={PROFILE_DISPLAY_NAME_MAX} />
       </div>
     </>
   )
