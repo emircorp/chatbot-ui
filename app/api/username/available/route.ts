@@ -1,7 +1,8 @@
 export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { cookies as getCookies } from 'next/headers';
 
 export async function POST(req: Request) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ isAvailable: false }, { status: 400 });
     }
 
-    const cookieStore = cookies();
+    const cookieStore = getCookies();
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
     const { data, error } = await supabase
       .from('profiles')
       .select('username')
-      .eq('username', username.toLowerCase())
+      .ilike('username', username)
       .maybeSingle();
 
     if (error) {
