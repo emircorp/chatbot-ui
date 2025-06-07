@@ -34,15 +34,11 @@ export default function SetupPage() {
   } = useContext(ChatbotUIContext)
 
   const router = useRouter()
-
   const [loading, setLoading] = useState(true)
-
   const [currentStep, setCurrentStep] = useState(1)
 
   // Profile Step
   const [displayName, setDisplayName] = useState("")
-  const [username, setUsername] = useState(profile?.username || "")
-  const [usernameAvailable, setUsernameAvailable] = useState(true)
 
   // API Step
   const [useAzureOpenai, setUseAzureOpenai] = useState(false)
@@ -69,16 +65,13 @@ export default function SetupPage() {
         return router.push("/login")
       } else {
         const user = session.user
-
         const profile = await getProfileByUserId(user.id)
         setProfile(profile)
-        setUsername(profile.username)
 
         if (!profile.has_onboarded) {
           setLoading(false)
         } else {
           const data = await fetchHostedModels(profile)
-
           if (!data) return
 
           setEnvKeyMap(data.envKeyMap)
@@ -90,9 +83,7 @@ export default function SetupPage() {
             setAvailableOpenRouterModels(openRouterModels)
           }
 
-          const homeWorkspaceId = await getHomeWorkspaceByUserId(
-            session.user.id
-          )
+          const homeWorkspaceId = await getHomeWorkspaceByUserId(session.user.id)
           return router.push(`/${homeWorkspaceId}/chat`)
         }
       }
@@ -113,9 +104,7 @@ export default function SetupPage() {
 
   const handleSaveSetupSetting = async () => {
     const session = (await supabase.auth.getSession()).data.session
-    if (!session) {
-      return router.push("/login")
-    }
+    if (!session) return router.push("/login")
 
     const user = session.user
     const profile = await getProfileByUserId(user.id)
@@ -124,7 +113,6 @@ export default function SetupPage() {
       ...profile,
       has_onboarded: true,
       display_name: displayName,
-      username,
       openai_api_key: openaiAPIKey,
       openai_organization_id: openaiOrgID,
       anthropic_api_key: anthropicAPIKey,
@@ -148,7 +136,6 @@ export default function SetupPage() {
     const workspaces = await getWorkspacesByUserId(profile.user_id)
     const homeWorkspace = workspaces.find(w => w.is_home)
 
-    // There will always be a home workspace
     setSelectedWorkspace(homeWorkspace!)
     setWorkspaces(workspaces)
 
@@ -157,7 +144,6 @@ export default function SetupPage() {
 
   const renderStep = (stepNum: number) => {
     switch (stepNum) {
-      // Profile Step
       case 1:
         return (
           <StepContainer
@@ -165,21 +151,15 @@ export default function SetupPage() {
             stepNum={currentStep}
             stepTitle="Welcome to Chatbot UI"
             onShouldProceed={handleShouldProceed}
-            showNextButton={!!(username && usernameAvailable)}
+            showNextButton={!!displayName}
             showBackButton={false}
           >
             <ProfileStep
-              username={username}
-              usernameAvailable={usernameAvailable}
               displayName={displayName}
-              onUsernameAvailableChange={setUsernameAvailable}
-              onUsernameChange={setUsername}
               onDisplayNameChange={setDisplayName}
             />
           </StepContainer>
         )
-
-      // API Step
       case 2:
         return (
           <StepContainer
@@ -224,8 +204,6 @@ export default function SetupPage() {
             />
           </StepContainer>
         )
-
-      // Finish Step
       case 3:
         return (
           <StepContainer
@@ -244,9 +222,7 @@ export default function SetupPage() {
     }
   }
 
-  if (loading) {
-    return null
-  }
+  if (loading) return null
 
   return (
     <div className="flex h-full items-center justify-center">
