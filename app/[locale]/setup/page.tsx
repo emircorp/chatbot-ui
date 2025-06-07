@@ -6,86 +6,49 @@ import {
   getHomeWorkspaceByUserId,
   getWorkspacesByUserId
 } from "@/db/workspaces"
-import {
-  fetchHostedModels,
-  fetchOpenRouterModels
-} from "@/lib/models/fetch-models"
 import { supabase } from "@/lib/supabase/browser-client"
 import { TablesUpdate } from "@/supabase/types"
 import { useRouter } from "next/navigation"
 import { useContext, useEffect, useState } from "react"
-import { APIStep } from "../../../components/setup/api-step"
-import { FinishStep } from "../../../components/setup/finish-step"
-import { ProfileStep } from "../../../components/setup/profile-step"
+import { FinishStep } from "@/components/setup/finish-step"
+import { ProfileStep } from "@/components/setup/profile-step"
+import { APIStep } from "@/components/setup/api-step" // sadeleştirilmiş
 import {
   SETUP_STEP_COUNT,
   StepContainer
-} from "../../../components/setup/step-container"
+} from "@/components/setup/step-container"
 
 export default function SetupPage() {
   const {
     profile,
     setProfile,
     setWorkspaces,
-    setSelectedWorkspace,
-    setEnvKeyMap,
-    setAvailableHostedModels,
-    setAvailableOpenRouterModels
+    setSelectedWorkspace
   } = useContext(ChatbotUIContext)
 
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
 
-  // Profile Step
+  /* Profile step */
   const [displayName, setDisplayName] = useState("")
 
-  // API Step
-  const [useAzureOpenai, setUseAzureOpenai] = useState(false)
-  const [openaiAPIKey, setOpenaiAPIKey] = useState("")
-  const [openaiOrgID, setOpenaiOrgID] = useState("")
-  const [azureOpenaiAPIKey, setAzureOpenaiAPIKey] = useState("")
-  const [azureOpenaiEndpoint, setAzureOpenaiEndpoint] = useState("")
-  const [azureOpenai35TurboID, setAzureOpenai35TurboID] = useState("")
-  const [azureOpenai45TurboID, setAzureOpenai45TurboID] = useState("")
-  const [azureOpenai45VisionID, setAzureOpenai45VisionID] = useState("")
-  const [azureOpenaiEmbeddingsID, setAzureOpenaiEmbeddingsID] = useState("")
-  const [anthropicAPIKey, setAnthropicAPIKey] = useState("")
-  const [googleGeminiAPIKey, setGoogleGeminiAPIKey] = useState("")
-  const [mistralAPIKey, setMistralAPIKey] = useState("")
-  const [groqAPIKey, setGroqAPIKey] = useState("")
-  const [perplexityAPIKey, setPerplexityAPIKey] = useState("")
-  const [openrouterAPIKey, setOpenrouterAPIKey] = useState("")
+  /* API step – yalnızca OpenAI */
+  const [openaiAPIKey, setOpenaiAPIKey] = useState("not-needed")
 
   useEffect(() => {
     ;(async () => {
       const session = (await supabase.auth.getSession()).data.session
+      if (!session) return router.push("/login")
 
-      if (!session) {
-        return router.push("/login")
+      const userProfile = await getProfileByUserId(session.user.id)
+      setProfile(userProfile)
+
+      if (!userProfile.has_onboarded) {
+        setLoading(false)
       } else {
-        const user = session.user
-        const profile = await getProfileByUserId(user.id)
-        setProfile(profile)
-
-        if (!profile.has_onboarded) {
-          setLoading(false)
-        } else {
-          const data = await fetchHostedModels(profile)
-          if (!data) return
-
-          setEnvKeyMap(data.envKeyMap)
-          setAvailableHostedModels(data.hostedModels)
-
-          if (profile["openrouter_api_key"] || data.envKeyMap["openrouter"]) {
-            const openRouterModels = await fetchOpenRouterModels()
-            if (!openRouterModels) return
-            setAvailableOpenRouterModels(openRouterModels)
-          }
-
-          const homeWorkspaceId = await getHomeWorkspaceByUserId(session.user.id)
-          return router.push(`/${homeWorkspaceId}/chat`)
-        }
+        const homeId = await getHomeWorkspaceByUserId(session.user.id)
+        return router.push(`/${homeId}/chat`)
       }
     })()
   }, [])
@@ -95,10 +58,10 @@ export default function SetupPage() {
       if (currentStep === SETUP_STEP_COUNT) {
         handleSaveSetupSetting()
       } else {
-        setCurrentStep(currentStep + 1)
+        setCurrentStep((prev) => prev + 1)
       }
     } else {
-      setCurrentStep(currentStep - 1)
+      setCurrentStep((prev) => prev - 1)
     }
   }
 
@@ -106,49 +69,34 @@ export default function SetupPage() {
     const session = (await supabase.auth.getSession()).data.session
     if (!session) return router.push("/login")
 
-    const user = session.user
-    const profile = await getProfileByUserId(user.id)
+    const dbProfile = await getProfileByUserId(session.user.id)
 
-    const updateProfilePayload: TablesUpdate<"profiles"> = {
-      ...profile,
+    /* ---- sadece gerekli alanlar ---- */
+    const payload: TablesUpdate<"profiles"> = {
+      ...dbProfile,
       has_onboarded: true,
       display_name: displayName,
-      openai_api_key: openaiAPIKey,
-      openai_organization_id: openaiOrgID,
-      anthropic_api_key: anthropicAPIKey,
-      google_gemini_api_key: googleGeminiAPIKey,
-      mistral_api_key: mistralAPIKey,
-      groq_api_key: groqAPIKey,
-      perplexity_api_key: perplexityAPIKey,
-      openrouter_api_key: openrouterAPIKey,
-      use_azure_openai: useAzureOpenai,
-      azure_openai_api_key: azureOpenaiAPIKey,
-      azure_openai_endpoint: azureOpenaiEndpoint,
-      azure_openai_35_turbo_id: azureOpenai35TurboID,
-      azure_openai_45_turbo_id: azureOpenai45TurboID,
-      azure_openai_45_vision_id: azureOpenai45VisionID,
-      azure_openai_embeddings_id: azureOpenaiEmbeddingsID
+      openai_api_key: openaiAPIKey
     }
 
-    const updatedProfile = await updateProfile(profile.id, updateProfilePayload)
-    setProfile(updatedProfile)
+    const updated = await updateProfile(dbProfile.id, payload)
+    setProfile(updated)
 
-    const workspaces = await getWorkspacesByUserId(profile.user_id)
-    const homeWorkspace = workspaces.find(w => w.is_home)
-
-    setSelectedWorkspace(homeWorkspace!)
+    const workspaces = await getWorkspacesByUserId(dbProfile.user_id)
+    const home = workspaces.find((w) => w.is_home)!
+    setSelectedWorkspace(home)
     setWorkspaces(workspaces)
 
-    return router.push(`/${homeWorkspace?.id}/chat`)
+    router.push(`/${home.id}/chat`)
   }
 
-  const renderStep = (stepNum: number) => {
-    switch (stepNum) {
+  const renderStep = (step: number) => {
+    switch (step) {
       case 1:
         return (
           <StepContainer
             stepDescription="Let's create your profile."
-            stepNum={currentStep}
+            stepNum={step}
             stepTitle="Welcome to Chatbot UI"
             onShouldProceed={handleShouldProceed}
             showNextButton={!!displayName}
@@ -163,44 +111,16 @@ export default function SetupPage() {
       case 2:
         return (
           <StepContainer
-            stepDescription="Enter API keys for each service you'd like to use."
-            stepNum={currentStep}
-            stepTitle="Set API Keys (optional)"
+            stepDescription="Enter your OpenAI API key (optional)."
+            stepNum={step}
+            stepTitle="Set OpenAI Key"
             onShouldProceed={handleShouldProceed}
             showNextButton={true}
             showBackButton={true}
           >
             <APIStep
               openaiAPIKey={openaiAPIKey}
-              openaiOrgID={openaiOrgID}
-              azureOpenaiAPIKey={azureOpenaiAPIKey}
-              azureOpenaiEndpoint={azureOpenaiEndpoint}
-              azureOpenai35TurboID={azureOpenai35TurboID}
-              azureOpenai45TurboID={azureOpenai45TurboID}
-              azureOpenai45VisionID={azureOpenai45VisionID}
-              azureOpenaiEmbeddingsID={azureOpenaiEmbeddingsID}
-              anthropicAPIKey={anthropicAPIKey}
-              googleGeminiAPIKey={googleGeminiAPIKey}
-              mistralAPIKey={mistralAPIKey}
-              groqAPIKey={groqAPIKey}
-              perplexityAPIKey={perplexityAPIKey}
-              useAzureOpenai={useAzureOpenai}
               onOpenaiAPIKeyChange={setOpenaiAPIKey}
-              onOpenaiOrgIDChange={setOpenaiOrgID}
-              onAzureOpenaiAPIKeyChange={setAzureOpenaiAPIKey}
-              onAzureOpenaiEndpointChange={setAzureOpenaiEndpoint}
-              onAzureOpenai35TurboIDChange={setAzureOpenai35TurboID}
-              onAzureOpenai45TurboIDChange={setAzureOpenai45TurboID}
-              onAzureOpenai45VisionIDChange={setAzureOpenai45VisionID}
-              onAzureOpenaiEmbeddingsIDChange={setAzureOpenaiEmbeddingsID}
-              onAnthropicAPIKeyChange={setAnthropicAPIKey}
-              onGoogleGeminiAPIKeyChange={setGoogleGeminiAPIKey}
-              onMistralAPIKeyChange={setMistralAPIKey}
-              onGroqAPIKeyChange={setGroqAPIKey}
-              onPerplexityAPIKeyChange={setPerplexityAPIKey}
-              onUseAzureOpenaiChange={setUseAzureOpenai}
-              openrouterAPIKey={openrouterAPIKey}
-              onOpenrouterAPIKeyChange={setOpenrouterAPIKey}
             />
           </StepContainer>
         )
@@ -208,7 +128,7 @@ export default function SetupPage() {
         return (
           <StepContainer
             stepDescription="You are all set up!"
-            stepNum={currentStep}
+            stepNum={step}
             stepTitle="Setup Complete"
             onShouldProceed={handleShouldProceed}
             showNextButton={true}
