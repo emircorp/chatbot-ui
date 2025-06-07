@@ -7,10 +7,19 @@ export async function GET(
   req: Request,
   { params }: { params: { userId: string } }
 ) {
+  const cookieStore = cookies()
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: cookies() }
+    {
+      cookies: {
+        get: (name: string) => {
+          const cookie = cookieStore.get(name)
+          return cookie ? cookie.value : null
+        }
+      }
+    }
   )
 
   const { data, error } = await supabase
