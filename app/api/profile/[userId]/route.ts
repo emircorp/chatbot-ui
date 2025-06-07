@@ -7,6 +7,8 @@ export async function GET(
   req: Request,
   { params }: { params: { userId: string } }
 ) {
+  console.log("API çağrısı başladı, userId:", params.userId)
+
   const cookieStore = cookies()
 
   const supabase = createServerClient<Database>(
@@ -16,6 +18,7 @@ export async function GET(
       cookies: {
         get: (name: string) => {
           const cookie = cookieStore.get(name)
+          console.log(`Cookie getirildi: ${name}=${cookie?.value}`)
           return cookie ? cookie.value : null
         }
       }
@@ -29,11 +32,15 @@ export async function GET(
     .limit(1)
     .maybeSingle()
 
+  console.log("Supabase sorgusu tamamlandı", { data, error })
+
   if (error) {
+    console.error("Supabase hatası:", error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
   if (!data) {
+    console.warn("Kullanıcı bulunamadı:", params.userId)
     return NextResponse.json({ error: "User not found" }, { status: 404 })
   }
 
