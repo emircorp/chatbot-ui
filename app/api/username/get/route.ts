@@ -4,12 +4,9 @@ import { createClient } from "@supabase/supabase-js"
 export const runtime = "edge"
 
 export async function POST(request: Request) {
-  const json = await request.json()
-  const { userId } = json as {
-    userId: string
-  }
-
   try {
+    const { userId } = await request.json() as { userId: string }
+
     const supabaseAdmin = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -21,18 +18,16 @@ export async function POST(request: Request) {
       .eq("user_id", userId)
       .single()
 
-    if (!data) {
-      throw new Error(error.message)
-    }
+    if (error) throw error
+    if (!data) throw new Error("User not found")
 
     return new Response(JSON.stringify({ username: data.username }), {
       status: 200
     })
   } catch (error: any) {
-    const errorMessage = error.error?.message || "An unexpected error occurred"
-    const errorCode = error.status || 500
-    return new Response(JSON.stringify({ message: errorMessage }), {
-      status: errorCode
-    })
+    return new Response(
+      JSON.stringify({ message: error.message || "Unexpected error" }),
+      { status: error.status || 500 }
+    )
   }
 }
