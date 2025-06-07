@@ -1,63 +1,38 @@
-import { Database } from "@/supabase/types"
-import { ChatSettings } from "@/types"
-import { createClient } from "@supabase/supabase-js"
-import { OpenAIStream, StreamingTextResponse } from "ai"
-import { ServerRuntime } from "next"
-import OpenAI from "openai"
-import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs"
+import { NextResponse } from "next/server"
 
-export const runtime: ServerRuntime = "edge"
+export const runtime = "edge"
 
-export async function POST(request: Request) {
-  const json = await request.json()
-  const { chatSettings, messages, customModelId } = json as {
-    chatSettings: ChatSettings
-    messages: any[]
-    customModelId: string
-  }
-
+export async function POST(req: Request) {
   try {
-    const supabaseAdmin = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const body = await req.json()
+    const { messages } = body
 
-    const { data: customModel, error } = await supabaseAdmin
-      .from("models")
-      .select("*")
-      .eq("id", customModelId)
-      .single()
+    // messages içindeki sadece content'leri al
+    const contents = messages.map((m: any) => m.content)
 
-    if (!customModel) {
-      throw new Error(error.message)
+    const response = await fetch("http://31.97.15.252:5000/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: contents
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || "Request failed")
     }
 
-    const custom = new OpenAI({
-      apiKey: customModel.api_key || "",
-      baseURL: customModel.base_url
+    const responseData = await response.json()
+
+    return NextResponse.json({
+      message: responseData.reply || responseData.message || "No reply"
     })
-
-    const response = await custom.chat.completions.create({
-      model: chatSettings.model as ChatCompletionCreateParamsBase["model"],
-      messages: messages as ChatCompletionCreateParamsBase["messages"],
-      temperature: chatSettings.temperature,
-      stream: true
-    })
-
-    const stream = OpenAIStream(response)
-
-    return new StreamingTextResponse(stream)
   } catch (error: any) {
     let errorMessage = error.message || "An unexpected error occurred"
     const errorCode = error.status || 500
-
-    if (errorMessage.toLowerCase().includes("api key not found")) {
-      errorMessage =
-        "Custom API Key not found. Please set it in your profile settings."
-    } else if (errorMessage.toLowerCase().includes("incorrect api key")) {
-      errorMessage =
-        "Custom API Key is incorrect. Please fix it in your profile settings."
-    }
 
     return new Response(JSON.stringify({ message: errorMessage }), {
       status: errorCode
